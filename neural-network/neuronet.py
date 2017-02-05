@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[19]:
+# In[2]:
 
 from keras.layers import Input, Convolution2D, MaxPooling2D, Dense, Dropout, Flatten, Activation
 from keras.utils import np_utils
@@ -35,11 +35,17 @@ def create_model():
     return model
 
 
-# In[61]:
+# In[7]:
 
 import os
 import scipy.io as sio
 import scipy
+
+def read_jpeg(path):
+    im = Image.open(path).convert('L')
+    X = list(im.getdata())
+    X = np.array(X)
+    return X
 
 def read_jpeg_training_data():
     x_train = []
@@ -60,7 +66,7 @@ def read_jpeg_training_data():
     length += len(img_names)
     return x_train, y_train, length   
 
-def train_model(model, x_test):
+def train_model(model):
     batch_size = 512
     num_epochs = 5
     height, width, deph = 96,96,1
@@ -71,13 +77,12 @@ def train_model(model, x_test):
     x_train /= 225
     x_train = x_train.reshape(set_size,1,height,width)
     model.fit(x_train, y_train, batch_size = batch_size, nb_epoch = num_epochs, verbose=0)
-    predictions = model.predict(x_test, batch_size=32, verbose=0)
-    return predictions
+    return model
 
 
 # Evaluator
 
-# In[71]:
+# In[9]:
 
 import numpy as np
 import csv
@@ -85,12 +90,13 @@ from pandas import read_csv
 from keras.utils import np_utils 
 from PIL import Image
 
+model = create_model()
+model = train_model(model)
+
 def evaluate_numpy_array(img):
     assert isinstance(img, np.ndarray)
     img = img.reshape(1,1,96,96)
-    model = create_model()
-    predictions = train_model(model, img)
-    #print(predictions[0][1])
+    predictions = model.predict(img, batch_size=32, verbose=0)
     return bool(int(round(predictions[0][1])))
         
 
@@ -106,6 +112,32 @@ y_test = []
 y_test.append(1)
 y_test = np_utils.to_categorical(y_test, 2) 
 print(evaluate_numpy_array(img))
+
+
+# Serializator
+
+# In[10]:
+
+def save_model(model):
+    model_json = model.to_json()
+    with open("network.json", "w") as json_file:
+        json_file.write(model_json)
+    model.save_weights("network.csv")
+
+
+# Deserializator
+
+# In[11]:
+
+from keras.models import model_from_json
+
+def load_model():
+    json_file = open('network.json', 'r')
+    loaded_model_json = json_file.read()
+    json_file.close()
+    model = model_from_json(loaded_model_json)
+    model.load_weights("network.csv")
+    return model
 
 
 # In[ ]:
